@@ -116,7 +116,7 @@ amount_L_frame = LabelFrame(convert_frame , text="Amount to convert", font=DEFAU
 amount_L_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
 
 # Create an entry for the amount to convert
-amount_entry = Entry(amount_L_frame, text= "Enter Amount", font=("Helvetica", 16))
+amount_entry = Entry(amount_L_frame, font=DEFAULT_FONT_STYLE)
 amount_entry.grid(row=1, column=0, padx=60, pady=20, sticky="nsew")
 
 
