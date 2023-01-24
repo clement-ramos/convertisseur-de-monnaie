@@ -1,17 +1,11 @@
+import re
 from tkinter import *
 from tkinter import ttk
+from tkinter import messagebox
 import json
 
 #My sized fonts
 DEFAULT_FONT_STYLE = ("Arial", 14)
-
-#Colors that I use
-WHITE = "#FFFFFF"
-LIGHT_PURPLE = "#5764DD"
-LIGHT_GRAY = "#F8F9FB"
-GRAY = "#C8C8C8"
-DARK_GRAY = "#38444B"
-
 
 """
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Def of my functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -19,108 +13,157 @@ DARK_GRAY = "#38444B"
 
 def convert():
 
-    validate_amount = amount.get()  #Amount (String)
+    amount = amount_entry.get() #Amount (String)
 
     try:
-        validate_amount_float = float(validate_amount) # amount in float
+        amount_float = float(amount) # amount in float
 
-        first_currency = starting_currency.get()    #name of the first currency
-        last_currency = final_currency.get()        #name of the second currency
+        first_currency = currency_in.get()    #name of the first currency
+        last_currency = currency_out.get()        #name of the second currency
 
-        USD_amount = (validate_amount_float / float(rate_from_USD_to[first_currency]))
-        result.set(str(USD_amount * float(rate_from_USD_to[last_currency])))
+        amount_in_USD = (amount_float / float(rate_from_USD_to[first_currency]))
+        amount_converted = round((amount_in_USD * float(rate_from_USD_to[last_currency])), 2)
+        result_label.config(text=f"{amount} {first_currency} is equal to {amount_converted} {last_currency}")
 
-        add_to_historic(validate_amount_float, first_currency, last_currency, (USD_amount * float(rate_from_USD_to[last_currency])))
+        historic_list.insert(END, f"{amount} {first_currency} is equal to {amount_converted} {last_currency}")
         
 
     except ValueError: 
         print("The only available inputs are numbers")
 
 
-def add_to_historic(validate_amount_float, first_currency, last_currency, result):
-    historic.append((validate_amount_float, first_currency, result, last_currency))
-    print(historic)
-    update_historic_display()
-
-
-def update_historic_display():
-    sub.delete(0, END)
-    for element in historic:
-        sub.insert(END, element)
-
-
 def clear_historic():
-    global historic
-    historic = []
-    update_historic_display()
+    historic_list.delete(0, END)
 
 
+def add_currency():
+    
+    new_currency = name_entry.get()
+    new_rate = rate_entry.get()
+        
+    # Check if inputs are not completed
+    if not new_currency or not new_rate:
+        messagebox.showerror("Error", "Please enter a currency and rate.")
+        return
+    # Check if the name already exist
+    if new_currency in rate_from_USD_to:
+        messagebox.showerror("Error", "This name is already used.")
+        return
+    # Check if the new rate as a valid type
+    if not re.match("^\d*\.\d+|\d+$", new_rate):
+        messagebox.showerror("Error", "Please enter a valid decimal number for the rate.")
+        return
+    # add the new currency and rate to the rates dictionary
+    rate_from_USD_to[new_currency] = float(new_rate)
+    messagebox.showinfo("Success", "Currency added successfully.")
+    
+    # Update the currency_in and currency_out Combobox values
+    currency_in['values'] = list(rate_from_USD_to.keys())
+    currency_out['values'] = list(rate_from_USD_to.keys())
+    
+    #Update the JSON to keep it even if you close the window
+    with open('data.json', 'w') as outfile:
+        json.dump(rate_from_USD_to, outfile)
+
+    # Clear the currency and rate Entry
+    name_entry.delete(0, END)
+    rate_entry.delete(0, END) 
+
+  
 """
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ GUI Config ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Gui General ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
-
-# create a GUI window
 gui = Tk()
-# set the configuration of GUI window
-gui.geometry("400x720")             # set a default size
+gui.title("Currencies Converter")
+gui.geometry("400x550")
 gui.resizable(False, False)
-gui.config(bg=DARK_GRAY)
-gui.title("Currency Converter")      # set the title of GUI window
 
-result = StringVar()
-historic = []
-
-#Create the list with all the currencies and ther ratio (USD to "the currency")
 file = open('data.json')
 rate_from_USD_to=json.load(file)
 currencies = [i for i in rate_from_USD_to]
 
+pages = ttk.Notebook(gui)
+pages.pack()
+
+#Create my 3 MAIN Frame
+# Currency Frame
+convert_frame = Frame(gui, width=480, height=480)
+convert_frame.pack(fill="both", expand=1)
+
+# Conversion Frame
+add_currency_frame = Frame(gui, width=480, height=480)
+add_currency_frame.pack(fill="both", expand=1)
+
+# Historic Frame
+historic_frame = Frame(gui, width=480, height=480)
+historic_list = Listbox(historic_frame, font=DEFAULT_FONT_STYLE)
+historic_list.pack(fill="both", expand=1)
+
+clear_historic = Button(historic_frame, text="Clear History", command=clear_historic)
+clear_historic.pack()
+
+# Add the Tabs
+pages.add(convert_frame, text="Convert")
+pages.add(add_currency_frame, text="Add")
+pages.add(historic_frame, text="Historic")
+
+
 """
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Historic ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Frame Converter ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
+#Create my TOP Frame
+amount_L_frame = LabelFrame(convert_frame , text="Amount to convert", font=DEFAULT_FONT_STYLE)
+amount_L_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
 
-#Displaying my historic
-sub = Listbox(gui)
-sub.pack(side = TOP, fill=BOTH)
-scrollbar = Scrollbar(sub)
-scrollbar.pack(side=RIGHT, fill='both')
+# Create an entry for the amount to convert
+amount_entry = Entry(amount_L_frame, text= "Enter Amount", font=("Helvetica", 16))
+amount_entry.grid(row=1, column=0, padx=60, pady=20, sticky="nsew")
 
-labelChoix = Label(gui, text = "Select an amount and your currencies!",font=DEFAULT_FONT_STYLE)
-labelChoix.pack(fill=X, ipady=5)
+
+#Create my CENTER Frame
+currencies_L_frame = LabelFrame(convert_frame, text="Currencies to convert", font=DEFAULT_FONT_STYLE)
+currencies_L_frame.grid(row=1, column=0, padx=20, pady=20, sticky="nsew")
+
+#Combo box for the (inner currency)
+currency_in = ttk.Combobox(currencies_L_frame, values=currencies, font=DEFAULT_FONT_STYLE, justify=RIGHT)
+currency_in.grid(row=1, column=0, padx=50, pady=15)
+
+#Combo box for the (output currency)
+currency_out = ttk.Combobox(currencies_L_frame, values=currencies, font=DEFAULT_FONT_STYLE, justify=RIGHT)
+currency_out.grid(row=2, column=0, padx=50, pady=15)
+
+# Create a convert button
+convert_button = ttk.Button(currencies_L_frame, text="Convert", command=convert)
+convert_button.grid(row=3, column=0, padx=10, pady=10)
+
+
+#Create my BOTTOM Frame
+result_L_frame = LabelFrame(convert_frame, text="Result : ", font=DEFAULT_FONT_STYLE)
+result_L_frame.grid(row=2, column=0, padx=20, pady=20, sticky="nsew")
+
+# Create a label to display the result
+result_label = Label(result_L_frame, font=DEFAULT_FONT_STYLE)
+result_label.grid(row=0, column=0, padx=50, pady=20, sticky="nsew")
 
 """
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Amount and ComboBox ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Frame add currency ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
+#Create my Frame who contain my elements
+add_currency_L_frame = LabelFrame(add_currency_frame, text="Add currency", font=DEFAULT_FONT_STYLE)
+add_currency_L_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
 
-amount = Entry(gui)     #Text input box
-amount.pack(side = TOP, ipady=10)
-        
-#Create the 2 combo boxes to choose currencies
-starting_currency = ttk.Combobox(gui, values=currencies)
-starting_currency.pack(side = TOP, ipady=5)
-starting_currency.current(0)
-starting_currency.bind("<<ComboboxSelected>>")
-starting_currency.pack()
+#Inputs with his label to write the NAME of the currency
+Label(add_currency_L_frame,text="Name").grid(row=0, column=0, padx=10)
+name_entry = Entry(add_currency_L_frame, font=DEFAULT_FONT_STYLE)
+name_entry.grid(row=0, column=1, pady=20, padx=40, sticky="nsew")
 
-final_currency = ttk.Combobox(gui, values=currencies)
-final_currency.pack(side = TOP, ipady=5)
-final_currency.current(0)
-final_currency.bind("<<ComboboxSelected>>")
+#Inputs with his label to write the RATE of the currency
+Label(add_currency_L_frame,text="Rate").grid(row=1, column=0,padx=10)
+rate_entry = Entry(add_currency_L_frame, font=DEFAULT_FONT_STYLE)
+rate_entry.grid(row=1, column=1, pady=20, padx=40, sticky="nsew")
 
-#Convert button who call convert()
-convert_button = Button(gui, text="Convert !", command=convert, pady=10, padx=5)
-convert_button.pack(side=TOP)
+#Create the button who ADD the currency to JSON
+add_currency_button = Button(add_currency_L_frame,text="Add", command=add_currency, font=DEFAULT_FONT_STYLE)
+add_currency_button.grid(row=2, column=0, padx=60, pady=20, columnspan=2, sticky="nsew")
 
-#Displaying the result
-label_result_title = Label(gui, text = "Result :",font=DEFAULT_FONT_STYLE)
-label_result_title.pack(fill=X)
-
-label_result = Label(gui, textvariable=result)
-label_result.pack(side=TOP, fill=X)
-
-#Convert button who call convert()
-convert_button = Button(gui, text="Clear historic", command=clear_historic)
-convert_button.pack(ipadx=5, ipady=5)
-
-#Display GUI
 gui.mainloop()
